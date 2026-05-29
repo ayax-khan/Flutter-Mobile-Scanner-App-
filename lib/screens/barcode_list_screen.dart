@@ -58,7 +58,9 @@ class _BarcodeListScreenState extends State<BarcodeListScreen> {
 
         return Scaffold(
           appBar: AppBar(
-            title: Text(title),
+            title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+            backgroundColor: Colors.deepPurple,
+            foregroundColor: Colors.white,
             bottom: PreferredSize(
               preferredSize: const Size.fromHeight(56),
               child: Padding(
@@ -66,7 +68,7 @@ class _BarcodeListScreenState extends State<BarcodeListScreen> {
                 child: TextField(
                   decoration: InputDecoration(
                     hintText: 'Search barcode...',
-                    prefixIcon: const Icon(Icons.search),
+                    prefixIcon: const Icon(Icons.search, color: Colors.deepPurple),
                     suffixIcon: _query.trim().isEmpty
                         ? null
                         : IconButton(
@@ -74,9 +76,13 @@ class _BarcodeListScreenState extends State<BarcodeListScreen> {
                             onPressed: () => setState(() => _query = ''),
                             icon: const Icon(Icons.clear),
                           ),
-                    border: const OutlineInputBorder(),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
                     isDense: true,
                     filled: true,
+                    fillColor: Colors.white,
                   ),
                   onChanged: (v) => setState(() => _query = v),
                 ),

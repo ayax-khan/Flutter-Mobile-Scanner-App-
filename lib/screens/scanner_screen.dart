@@ -4,14 +4,22 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../state/scan_add_outcome.dart';
-
 import '../state/scanned_barcodes_store.dart';
+import '../state/auth_store.dart';
+import '../services/api_service.dart';
 import 'barcode_list_screen.dart';
 
 class ScannerScreen extends StatefulWidget {
-  const ScannerScreen({super.key, required this.store});
+  const ScannerScreen({
+    super.key, 
+    required this.store,
+    required this.authStore,
+    required this.apiService,
+  });
 
   final ScannedBarcodesStore store;
+  final AuthStore authStore;
+  final ApiService apiService;
 
   @override
   State<ScannerScreen> createState() => _ScannerScreenState();
@@ -81,6 +89,27 @@ class _ScannerScreenState extends State<ScannerScreen> with WidgetsBindingObserv
 
         // Pause camera until user presses Next.
         await _controller.stop();
+        
+        // Try sending to the backend
+        final apiSuccess = await widget.apiService.sendScan(raw.trim());
+        if (apiSuccess) {
+           ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Successfully synced with server!'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        } else {
+           ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Saved locally. Backend sync failed (Order not found or Offline).'),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+        
         break;
 
       case ScanAddStatus.duplicate:
@@ -116,12 +145,34 @@ class _ScannerScreenState extends State<ScannerScreen> with WidgetsBindingObserv
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Scanner'),
+        title: const Text('Return Scanner', style: TextStyle(fontWeight: FontWeight.bold)),
+        leading: IconButton(
+          tooltip: 'Toggle Flashlight',
+          icon: ValueListenableBuilder<TorchState>(
+            valueListenable: _controller.torchState,
+            builder: (context, state, child) {
+              switch (state) {
+                case TorchState.off:
+                  return const Icon(Icons.flash_off, color: Colors.grey);
+                case TorchState.on:
+                  return const Icon(Icons.flash_on, color: Colors.yellowAccent);
+              }
+            },
+          ),
+          onPressed: () => _controller.toggleTorch(),
+        ),
         actions: [
           IconButton(
-            tooltip: 'List',
+            tooltip: 'Unpair Device',
+            onPressed: () async {
+              await widget.authStore.unpair();
+            },
+            icon: const Icon(Icons.logout),
+          ),
+          IconButton(
+            tooltip: 'History',
             onPressed: _openList,
-            icon: const Icon(Icons.list_alt),
+            icon: const Icon(Icons.history),
           ),
         ],
       ),
@@ -199,7 +250,7 @@ class _ScannerErrorOverlay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: Colors.black.withValues(alpha: 0.75),
+      color: Colors.white.withOpacity(0.95), // Light background instead of black
       padding: const EdgeInsets.all(24),
       child: Center(
         child: ConstrainedBox(
@@ -207,29 +258,35 @@ class _ScannerErrorOverlay extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              const Icon(Icons.no_photography_outlined, size: 64, color: Colors.deepPurple),
+              const SizedBox(height: 16),
               Text(
                 title,
                 style: Theme.of(context)
                     .textTheme
                     .titleLarge
-                    ?.copyWith(color: Colors.white),
+                    ?.copyWith(color: Colors.deepPurple, fontWeight: FontWeight.bold),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 12),
               Text(
                 message,
-                style: const TextStyle(color: Colors.white70),
+                style: const TextStyle(color: Colors.black87),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 24),
               FilledButton(
                 onPressed: _openSettings,
+                style: FilledButton.styleFrom(
+                  backgroundColor: Colors.deepPurple,
+                  foregroundColor: Colors.white,
+                ),
                 child: const Text('Open Settings'),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
               const Text(
                 'Enable Camera permission for this app.',
-                style: TextStyle(color: Colors.white70),
+                style: TextStyle(color: Colors.black54),
                 textAlign: TextAlign.center,
               ),
             ],
@@ -253,15 +310,21 @@ class _StatusCard extends StatelessWidget {
         : 'Saved: ${lastScanned ?? ''}\nPress Next to scan another.';
 
     return Card(
-      color: Colors.black.withValues(alpha: 0.65),
+      elevation: 4,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        side: const BorderSide(color: Colors.deepPurple, width: 2),
+        borderRadius: BorderRadius.circular(12),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(16),
         child: Text(
           text,
           textAlign: TextAlign.center,
           style: const TextStyle(
-            color: Colors.white,
-            fontSize: 14,
+            color: Colors.deepPurple,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
             height: 1.25,
           ),
         ),
